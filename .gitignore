@@ -1,0 +1,16 @@
+# Miscellaneous
+.DS_Store
+tmp/
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# Files and directories created by pub.
+.dart_tool/
+.packages
+
+# Conventional directory for build output.
+build/
