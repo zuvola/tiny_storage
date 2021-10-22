@@ -16,6 +16,7 @@
 - 早い
   - `Isolate`を使用しファイルI/Oを並列処理
   - 同一イベントループ内では複数回書き込み処理が走らない
+- 大きなデータであっても書き込み順を保証
 
 
 ## Getting started
@@ -55,7 +56,6 @@ StringをキーにObjectの登録・取得を行います。
 ```dart
 storage.set('key_1', 'value_1');
 final ret = storage.get('key_1');
-}
 ```
 
 ### クリア

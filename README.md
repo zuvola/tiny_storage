@@ -16,6 +16,7 @@ It is also a very small library, so it is easy for anyone to understand how it w
 - Fast
   - Parallel processing of file I/O using `Isolate`.
   - Multiple write operations are not executed in the same event loop.
+- Guaranteed write order, even for large data.
 
 
 ## Getting started
@@ -55,7 +56,6 @@ The value is immediately held in memory and written to disk before the next even
 ```dart
 storage.set('key_1', 'value_1');
 final ret = storage.get('key_1');
-}
 ```
 
 ### Clear
@@ -88,7 +88,7 @@ When using it in multiple classes, it is recommended to share the instance using
 
 ```dart
 Future<void> A() async {
-  // Acquisition
+  // Registration
   final storage = await TinyStorage.init('test.txt', path: './tmp');
   locator.add<TinyStorage>(() => storage);
 }
