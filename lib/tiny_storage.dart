@@ -12,7 +12,7 @@ class TinyStorage {
 
   TinyStorage._() {
     _concrete = StorageImpl();
-    _flush = _FlushTask(_concrete.flush);
+    _flush = _FlushTask(_concrete.flush, _data);
   }
 
   /// Initialization.
@@ -39,40 +39,39 @@ class TinyStorage {
   /// Associates the [key] with the given [value].
   void set(String key, dynamic value) {
     _data[key] = value;
-    _flush.run(_data);
+    _flush.run();
   }
 
   /// Removes [key] from the storage.
   void remove(String key) {
     _data.remove(key);
-    _flush.run(_data);
+    _flush.run();
   }
 }
 
+enum _TaskState { free, lock, busy, next }
+
 class _FlushTask {
-  bool _rock = false;
-  bool _busy = false;
-  Object? _next;
+  _TaskState state = _TaskState.free;
+  Object data;
 
   Function flushFunc;
 
-  _FlushTask(this.flushFunc);
+  _FlushTask(this.flushFunc, this.data);
 
-  void run(Object data) {
-    if (_busy) {
-      _next = data;
+  void run() {
+    if (state == _TaskState.busy) {
+      state = _TaskState.next;
     }
-    if (!_rock) {
-      _rock = true;
+    if (state == _TaskState.free) {
+      state = _TaskState.lock;
       scheduleMicrotask(() async {
-        _busy = true;
+        state = _TaskState.busy;
         await flushFunc(data);
-        final next = _next;
-        _rock = false;
-        _next = null;
-        _busy = false;
-        if (next != null) {
-          run(next);
+        final next = state == _TaskState.next;
+        state = _TaskState.free;
+        if (next) {
+          run();
         }
       });
     }
