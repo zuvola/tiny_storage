@@ -56,4 +56,19 @@ void main() {
     final val = storage.get('key_4');
     expect(val, true);
   });
+
+  test('save order safety', () async {
+    storage.set('key_1', 'val_1');
+    storage.set('key_1', List.generate(1000000, (index) => 'A').join());
+    await Future.delayed(Duration.zero);
+    storage.set('key_1', 'val_3');
+
+    final val = storage.get<String>('key_1');
+    expect(val, 'val_3');
+  });
+
+  test('persistent3', () async {
+    final val = storage.get<String>('key_1');
+    expect(val, 'val_3');
+  });
 }
