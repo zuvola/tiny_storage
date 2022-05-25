@@ -48,7 +48,13 @@ class StorageImpl {
           data.callback(<String, dynamic>{});
           break;
         case 'clear':
-          _file.delete().then((_) => data.callback(null));
+          _file.exists().then((exists) {
+            if (exists) {
+              _file.delete().then((_) => data.callback(null));
+            } else {
+              data.callback(null);
+            }
+          });
           break;
         case 'flush':
           final jsonstr = json.encode(data.value['data']);

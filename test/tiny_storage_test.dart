@@ -36,6 +36,13 @@ void main() {
     expect(val, isNull);
   });
 
+  test('clear twice', () async {
+    await storage.clear();
+    await storage.clear();
+    final val = storage.get('key_2');
+    expect(val, isNull);
+  });
+
   test('null', () async {
     storage.set('key_1', null);
     final val = storage.get('key_1');
