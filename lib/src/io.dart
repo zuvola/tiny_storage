@@ -30,27 +30,27 @@ class StorageImpl {
   Future<void> dispose() async => _worker.dispose();
 
   static void _workerMethod(Stream<WorkerData> message) {
-    late File _file;
+    late File file;
     message.listen((data) {
       final command = data.value['command'];
       switch (command) {
         case 'init':
           final path = data.value['path'] as String;
-          _file = File(path);
-          if (!_file.existsSync()) {
-            _file.create(recursive: true);
+          file = File(path);
+          if (!file.existsSync()) {
+            file.create(recursive: true);
           } else {
             try {
-              data.callback(json.decode(_file.readAsStringSync()));
+              data.callback(json.decode(file.readAsStringSync()));
               return;
             } catch (_) {}
           }
           data.callback(<String, dynamic>{});
           break;
         case 'clear':
-          _file.exists().then((exists) {
+          file.exists().then((exists) {
             if (exists) {
-              _file.delete().then((_) => data.callback(null));
+              file.delete().then((_) => data.callback(null));
             } else {
               data.callback(null);
             }
@@ -58,10 +58,10 @@ class StorageImpl {
           break;
         case 'flush':
           final jsonstr = json.encode(data.value['data']);
-          if (!_file.existsSync()) {
-            _file.create(recursive: true);
+          if (!file.existsSync()) {
+            file.create(recursive: true);
           }
-          _file.writeAsString(jsonstr).then((_) {
+          file.writeAsString(jsonstr).then((_) {
             data.callback(null);
           });
           break;
