@@ -1,3 +1,6 @@
+## 1.0.2
+- Updated isoworker to fix a bug that sometimes files are not saved when exiting.
+
 ## 1.0.1
 - Avoid error when clear is called multiple times
 

@@ -9,8 +9,7 @@ void main() {
     storage = await TinyStorage.init('test.txt', path: './tmp');
   });
   tearDown(() async {
-    await Future.delayed(Duration(milliseconds: 200));
-    storage.dispose();
+    await storage.dispose();
   });
 
   test('set and get', () async {
