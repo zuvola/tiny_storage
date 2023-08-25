@@ -1,3 +1,6 @@
+## 1.0.3
+- Avoided unnecessary saving when values are the same.
+
 ## 1.0.2
 - Updated isoworker to fix a bug that sometimes files are not saved when exiting.
 

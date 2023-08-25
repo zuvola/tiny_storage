@@ -38,8 +38,10 @@ class TinyStorage {
 
   /// Associates the [key] with the given [value].
   void set(String key, dynamic value) {
-    _data[key] = value;
-    _flush.run();
+    if (_data[key] != value) {
+      _data[key] = value;
+      _flush.run();
+    }
   }
 
   /// Removes [key] from the storage.
