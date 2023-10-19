@@ -77,4 +77,21 @@ void main() {
     final val = storage.get<String>('key_1');
     expect(val, 'val_3');
   });
+
+  test('Map', () async {
+    var map = {'a': 1};
+    storage.set('key_map', map);
+    await Future.delayed(Duration.zero);
+    Map val = storage.get<Map>('key_map');
+    expect(val, {'a': 1});
+    map['a'] = 2;
+    storage.set('key_map', map);
+    val = storage.get<Map>('key_map');
+    expect(val, {'a': 2});
+  });
+
+  test('persistent4', () async {
+    final val = storage.get<Map>('key_map');
+    expect(val, {'a': 2});
+  });
 }

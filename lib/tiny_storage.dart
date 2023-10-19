@@ -38,7 +38,7 @@ class TinyStorage {
 
   /// Associates the [key] with the given [value].
   void set(String key, dynamic value) {
-    if (_data[key] != value) {
+    if (value is Map || value is List || _data[key] != value) {
       _data[key] = value;
       _flush.run();
     }

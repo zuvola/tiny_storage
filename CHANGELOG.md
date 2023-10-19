@@ -1,3 +1,6 @@
+## 1.0.4
+- Fixed data updates to Map and List.
+
 ## 1.0.3
 - Avoided unnecessary saving when values are the same.
 
