@@ -48,6 +48,13 @@ In the case of Flutter, it is also necessary to specify the destination path usi
 final storage = await TinyStorage.init('test.txt', path: './tmp');
 ```
 
+If you do not want to increase the number of threads when opening multiple files, specify a TinyStorage object to be shared in `union`. It will work on the same thread.
+
+```dart
+final storage = await TinyStorage.init('test1.txt', path: './tmp');
+final storage2 = await TinyStorage.init('test2.txt', path: './tmp', union: storage);
+```
+
 ### Registration and Retrieval
 
 Registers and retrieves an Object using String as a key.  

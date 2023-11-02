@@ -1,3 +1,6 @@
+## 1.1.0
+- Added 'union' to run on the same thread.
+
 ## 1.0.4
 - Fixed data updates to Map and List.
 

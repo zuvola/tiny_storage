@@ -48,6 +48,13 @@ Flutterの場合は[path_provider](https://pub.dev/packages/path_provider)など
 final storage = await TinyStorage.init('test.txt', path: './tmp');
 ```
 
+複数ファイルを開く際にスレッドを増やしたくない場合は、`union`に共通化するTinyStorageオブジェクトを指定してください。同一スレッドで動作するようになります。
+
+```dart
+final storage = await TinyStorage.init('test1.txt', path: './tmp');
+final storage2 = await TinyStorage.init('test2.txt', path: './tmp', union: storage);
+```
+
 ### 登録・取得
 
 StringをキーにObjectの登録・取得を行います。  

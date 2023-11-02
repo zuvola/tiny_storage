@@ -17,9 +17,10 @@ class TinyStorage {
 
   /// Initialization.
   /// Specify the file name to save.
-  static Future<TinyStorage> init(String name, {String path = '.'}) async {
+  static Future<TinyStorage> init(String name,
+      {String path = '.', TinyStorage? union}) async {
     final instance = TinyStorage._();
-    final ret = await instance._concrete.init(name, path);
+    final ret = await instance._concrete.init(name, path, union?._concrete);
     instance._data.addAll(ret);
     return instance;
   }

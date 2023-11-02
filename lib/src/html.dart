@@ -5,7 +5,8 @@ class NotSupportedError extends Error {
 
 class StorageImpl {
   /// Initialization.
-  Future<Map<String, dynamic>> init(String name, String path) async {
+  Future<Map<String, dynamic>> init(
+      String name, String path, StorageImpl? union) async {
     throw NotSupportedError();
   }
 

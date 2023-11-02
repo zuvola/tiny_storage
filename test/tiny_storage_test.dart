@@ -94,4 +94,19 @@ void main() {
     final val = storage.get<Map>('key_map');
     expect(val, {'a': 2});
   });
+
+  test('union', () async {
+    final storage2 =
+        await TinyStorage.init('test2.txt', path: './tmp', union: storage);
+    storage.set('key_1', 'val_1');
+    dynamic val = storage.get<String>('key_1');
+    expect(val, 'val_1');
+    storage2.set('key_union', 2);
+    val = storage2.get<int>('key_union');
+    expect(val, 2);
+    val = storage.get('key_union');
+    expect(val, null);
+    await Future.delayed(Duration.zero);
+    await storage2.dispose();
+  });
 }
