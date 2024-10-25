@@ -10,6 +10,9 @@ class TinyStorage {
   final Map<String, dynamic> _data = {};
   late _FlushTask _flush;
 
+  /// Whether it is being processed or not.
+  bool get inProgress => _concrete.inProgress;
+
   TinyStorage._() {
     _concrete = StorageImpl();
     _flush = _FlushTask(_concrete.flush, _data);
@@ -50,15 +53,24 @@ class TinyStorage {
     _data.remove(key);
     _flush.run();
   }
+
+  /// Wait until idle.
+  Future<void> waitUntilIdle() {
+    return Future.microtask(() async {
+      if (inProgress) {
+        await Future.delayed(Duration(milliseconds: 50));
+        return waitUntilIdle();
+      }
+    });
+  }
 }
 
 enum _TaskState { free, lock, busy, next }
 
 class _FlushTask {
+  final Object data;
+  final Function flushFunc;
   _TaskState state = _TaskState.free;
-  Object data;
-
-  Function flushFunc;
 
   _FlushTask(this.flushFunc, this.data);
 

@@ -8,6 +8,9 @@ class StorageImpl {
   late final IsoWorker _worker;
   late final String _path;
 
+  // Whether it is being processed or not.
+  bool get inProgress => _worker.inProgress;
+
   /// Initialization.
   Future<Map<String, dynamic>> init(
       String name, String path, StorageImpl? union) async {

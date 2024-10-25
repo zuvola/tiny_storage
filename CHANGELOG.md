@@ -1,3 +1,7 @@
+## 1.2.0
+- Added 'inProgress' to indicate whether the process is in progress or not.
+- Added 'waitUntilIdle' to wait until idle.
+
 ## 1.1.0
 - Added 'union' to run on the same thread.
 

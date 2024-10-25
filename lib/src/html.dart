@@ -4,6 +4,9 @@ class NotSupportedError extends Error {
 }
 
 class StorageImpl {
+  // Whether it is being processed or not.
+  bool get inProgress => false;
+
   /// Initialization.
   Future<Map<String, dynamic>> init(
       String name, String path, StorageImpl? union) async {

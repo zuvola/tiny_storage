@@ -49,13 +49,20 @@ void main() {
   });
 
   test('flush in busy', () async {
+    expect(storage.inProgress, false);
+    storage.set('key_1', null);
     storage.set('key_1', 'val_1');
+    expect(storage.inProgress, false);
     storage.set('key_2', 2);
     await Future.delayed(Duration.zero);
+    expect(storage.inProgress, true);
     storage.set('key_3', [1, 2, 3]);
     storage.set('key_4', true);
     final val = storage.get('key_4');
     expect(val, true);
+    expect(storage.inProgress, true);
+    await storage.waitUntilIdle();
+    expect(storage.inProgress, false);
   });
 
   test('persistent2', () async {
@@ -68,7 +75,6 @@ void main() {
     storage.set('key_1', List.generate(1000000, (index) => 'A').join());
     await Future.delayed(Duration.zero);
     storage.set('key_1', 'val_3');
-
     final val = storage.get<String>('key_1');
     expect(val, 'val_3');
   });
