@@ -13,17 +13,29 @@ class TinyStorage {
   /// Whether it is being processed or not.
   bool get inProgress => _concrete.inProgress;
 
-  TinyStorage._() {
+  TinyStorage._(void Function(Object)? errorCallback) {
     _concrete = StorageImpl();
-    _flush = _FlushTask(_concrete.flush, _data);
+    _flush = _FlushTask(
+      _concrete.flush,
+      _data,
+      errorCallback,
+    );
   }
 
   /// Initialization.
   /// Specify the file name to save.
-  static Future<TinyStorage> init(String name,
-      {String path = '.', TinyStorage? union}) async {
-    final instance = TinyStorage._();
-    final ret = await instance._concrete.init(name, path, union?._concrete);
+  static Future<TinyStorage> init(
+    String name, {
+    String path = '.',
+    TinyStorage? union,
+    void Function(Object)? errorCallback,
+  }) async {
+    final instance = TinyStorage._(errorCallback);
+    final ret = await instance._concrete.init(
+      name,
+      path,
+      union?._concrete,
+    );
     instance._data.addAll(ret);
     return instance;
   }
@@ -34,6 +46,12 @@ class TinyStorage {
   /// Removes all entries from the storage.
   Future<void> clear() async {
     await _concrete.clear();
+    _data.clear();
+  }
+
+  /// Close the file.
+  Future<void> close() async {
+    await _concrete.close();
     _data.clear();
   }
 
@@ -69,10 +87,15 @@ enum _TaskState { free, lock, busy, next }
 
 class _FlushTask {
   final Object data;
-  final Function flushFunc;
+  final Future<void> Function(Object) flushFunc;
+  final void Function(Object)? errorCallback;
   _TaskState state = _TaskState.free;
 
-  _FlushTask(this.flushFunc, this.data);
+  _FlushTask(
+    this.flushFunc,
+    this.data,
+    this.errorCallback,
+  );
 
   void run() {
     if (state == _TaskState.busy) {
@@ -82,7 +105,11 @@ class _FlushTask {
       state = _TaskState.lock;
       scheduleMicrotask(() async {
         state = _TaskState.busy;
-        await flushFunc(data);
+        try {
+          await flushFunc(data);
+        } catch (e) {
+          errorCallback?.call(e);
+        }
         final next = state == _TaskState.next;
         state = _TaskState.free;
         if (next) {

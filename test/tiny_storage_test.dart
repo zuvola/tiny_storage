@@ -1,14 +1,27 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:test/test.dart';
 import 'package:tiny_storage/tiny_storage.dart';
 
+final testFileName = 'test.txt';
+final testFilePath = './tmp';
+
 void main() {
   late TinyStorage storage;
+  Object? error;
   setUp(() async {
-    storage = await TinyStorage.init('test.txt', path: './tmp');
+    storage = await TinyStorage.init(
+      testFileName,
+      path: testFilePath,
+      errorCallback: (err) {
+        error = err;
+        print(err);
+      },
+    );
   });
   tearDown(() async {
+    error = null;
     await storage.dispose();
   });
 
@@ -33,6 +46,10 @@ void main() {
     await storage.clear();
     final val = storage.get('key_2');
     expect(val, isNull);
+    final file = File(testFilePath + Platform.pathSeparator + testFileName);
+    expect(file.existsSync(), false);
+    await storage.waitUntilIdle();
+    expect(error, isNull);
   });
 
   test('clear twice', () async {
@@ -40,6 +57,34 @@ void main() {
     await storage.clear();
     final val = storage.get('key_2');
     expect(val, isNull);
+    await storage.waitUntilIdle();
+    expect(error, isNull);
+  });
+
+  test('clear and set', () async {
+    await storage.clear();
+    storage.set('key_1', 'val_1');
+    dynamic val = storage.get<String>('key_1');
+    expect(val, 'val_1');
+    await storage.waitUntilIdle();
+    expect(error, isNotNull);
+  });
+
+  test('close', () async {
+    await storage.close();
+    final val = storage.get('key_1');
+    expect(val, isNull);
+    final file = File(testFilePath + Platform.pathSeparator + testFileName);
+    expect(file.existsSync(), true);
+  });
+
+  test('close and set', () async {
+    await storage.close();
+    storage.set('key_1', 'val_1');
+    await storage.waitUntilIdle();
+    final file = File(testFilePath + Platform.pathSeparator + testFileName);
+    expect(file.existsSync(), true);
+    expect(error, isNotNull);
   });
 
   test('null', () async {

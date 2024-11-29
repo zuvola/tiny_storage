@@ -27,4 +27,8 @@ class StorageImpl {
   Future<void> clear() async {
     throw NotSupportedError();
   }
+
+  Future<void> close() async {
+    throw NotSupportedError();
+  }
 }

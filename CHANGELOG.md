@@ -1,3 +1,7 @@
+## 1.3.0
+- Added 'close' to close the current file.
+- Added 'errorCallback' to get errors.
+
 ## 1.2.0
 - Added 'inProgress' to indicate whether the process is in progress or not.
 - Added 'waitUntilIdle' to wait until idle.

@@ -28,7 +28,9 @@ class StorageImpl {
 
   /// Write data to a file
   Future<void> flush(dynamic data) async {
-    return _worker.exec({'command': 'flush', 'path': _path, 'data': data});
+    final res = await _worker
+        .exec<bool>({'command': 'flush', 'path': _path, 'data': data});
+    assert(res, 'file is not opened: $_path');
   }
 
   /// Removes all entries from the storage.
@@ -36,12 +38,16 @@ class StorageImpl {
     return _worker.exec({'command': 'clear', 'path': _path});
   }
 
+  Future<void> close() async {
+    return _worker.exec({'command': 'close', 'path': _path});
+  }
+
   /// Destroying object.
   Future<void> dispose() async => _worker.dispose();
 
   static void _workerMethod(Stream<WorkerData> message) {
     final Map<String, File> files = {};
-    message.listen((data) {
+    message.listen((data) async {
       final command = data.value['command'];
       final path = data.value['path'] as String;
       switch (command) {
@@ -58,25 +64,31 @@ class StorageImpl {
           }
           data.callback(<String, dynamic>{});
           break;
+        case 'close':
+          files.remove(path);
+          data.callback(null);
+          break;
         case 'clear':
           final file = files[path];
-          file?.exists().then((exists) {
-            if (exists) {
-              file.delete().then((_) => data.callback(null));
-            } else {
-              data.callback(null);
-            }
-          });
+          final exists = await file?.exists();
+          if (exists ?? false) {
+            await file!.delete();
+          }
+          files.remove(path);
+          data.callback(null);
           break;
         case 'flush':
           final file = files[path];
           final jsonstr = json.encode(data.value['data']);
-          if (file != null && !file.existsSync()) {
-            file.create(recursive: true);
+          if (file == null) {
+            data.callback(false);
+            return;
           }
-          file?.writeAsString(jsonstr).then((_) {
-            data.callback(null);
-          });
+          if (!file.existsSync()) {
+            await file.create(recursive: true);
+          }
+          await file.writeAsString(jsonstr);
+          data.callback(true);
           break;
         default:
           data.callback(null);
