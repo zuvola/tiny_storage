@@ -1,33 +1,40 @@
+import 'storage_impl.dart';
+
+StorageImpl platformCreateStorage() {
+  return HTMLStorageImpl();
+}
+
 /// NotSupportedError
 class NotSupportedError extends Error {
   final String message = 'not supported';
 }
 
-class StorageImpl {
-  // Whether it is being processed or not.
+class HTMLStorageImpl implements StorageImpl {
+  @override
   bool get inProgress => false;
 
-  /// Initialization.
+  @override
   Future<Map<String, dynamic>> init(
       String name, String path, StorageImpl? union) async {
     throw NotSupportedError();
   }
 
-  /// Destroying object.
+  @override
   Future<void> dispose() async {
     throw NotSupportedError();
   }
 
-  /// Write data to a file
+  @override
   Future<void> flush(dynamic data) async {
     throw NotSupportedError();
   }
 
-  /// Removes all entries from the storage.
+  @override
   Future<void> clear() async {
     throw NotSupportedError();
   }
 
+  @override
   Future<void> close() async {
     throw NotSupportedError();
   }

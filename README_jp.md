@@ -82,6 +82,54 @@ storage.dispose();
 ```
 
 
+## テスト
+
+`StorageImpl`インターフェースを使用してモック実装を作成し、テストを行うことができます。
+
+```dart
+class MockStorageImpl implements StorageImpl {
+  final Map<String, dynamic> data = {};
+  bool _inProgress = false;
+
+  @override
+  bool get inProgress => _inProgress;
+
+  @override
+  Future<Map<String, dynamic>> init(
+      String name, String path, StorageImpl? union) async {
+    return data;
+  }
+
+  @override
+  Future<void> flush(dynamic newData) async {
+    _inProgress = true;
+    if (newData is Map) {
+      data.clear();
+      data.addAll(newData as Map<String, dynamic>);
+    }
+    _inProgress = false;
+  }
+
+  // その他のメソッドも実装...
+}
+
+void main() {
+  test('TinyStorage with mock', () async {
+    final mockStorage = MockStorageImpl();
+    final storage = await TinyStorage.init(
+      'test.json',
+      path: '.',
+      storage: mockStorage, // モック実装を注入
+    );
+
+    storage.set('key', 'value');
+    await storage.waitUntilIdle();
+    expect(storage.get<String>('key'), equals('value'));
+    expect(mockStorage.data['key'], equals('value'));
+  });
+}
+```
+
 ## Note
 
 Web版は未実装になっています。

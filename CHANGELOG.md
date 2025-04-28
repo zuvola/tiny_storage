@@ -1,3 +1,9 @@
+## 1.4.0
+- Added `StorageImpl` interface for better testability and extensibility.
+- Refactored storage implementations into separate classes (`IOStorageImpl` and `HTMLStorageImpl`).
+- Added support for dependency injection through `storage` parameter in `TinyStorage.init`.
+- Added example test cases using mock implementation.
+
 ## 1.3.0
 - Added 'close' to close the current file.
 - Added 'errorCallback' to get errors.

@@ -1,20 +1,20 @@
 library tiny_storage;
 
 import 'dart:async';
-
-import 'src/html.dart' if (dart.library.io) 'src/io.dart';
+import 'src/storage_impl.dart';
+import 'src/storage_factory.dart';
 
 /// A simple key-value store based on JSON file
 class TinyStorage {
-  late StorageImpl _concrete;
+  final StorageImpl _concrete;
   final Map<String, dynamic> _data = {};
   late _FlushTask _flush;
 
   /// Whether it is being processed or not.
   bool get inProgress => _concrete.inProgress;
 
-  TinyStorage._(void Function(Object)? errorCallback) {
-    _concrete = StorageImpl();
+  TinyStorage._(StorageImpl? storage, void Function(Object)? errorCallback)
+      : _concrete = storage ?? createDefaultStorage() {
     _flush = _FlushTask(
       _concrete.flush,
       _data,
@@ -24,13 +24,15 @@ class TinyStorage {
 
   /// Initialization.
   /// Specify the file name to save.
+  /// Creates a new instance of TinyStorage with the given storage implementation.
   static Future<TinyStorage> init(
     String name, {
     String path = '.',
     TinyStorage? union,
     void Function(Object)? errorCallback,
+    StorageImpl? storage,
   }) async {
-    final instance = TinyStorage._(errorCallback);
+    final instance = TinyStorage._(storage, errorCallback);
     final ret = await instance._concrete.init(
       name,
       path,

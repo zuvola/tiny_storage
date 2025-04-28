@@ -3,18 +3,26 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:isoworker/isoworker.dart';
+import 'storage_impl.dart';
 
-class StorageImpl {
+StorageImpl platformCreateStorage() {
+  return IOStorageImpl();
+}
+
+class IOStorageImpl implements StorageImpl {
   late final IsoWorker _worker;
   late final String _path;
 
-  // Whether it is being processed or not.
+  @override
   bool get inProgress => _worker.inProgress;
 
-  /// Initialization.
+  @override
   Future<Map<String, dynamic>> init(
       String name, String path, StorageImpl? union) async {
     if (union != null) {
+      if (union is! IOStorageImpl) {
+        throw ArgumentError('union must be IOStorageImpl');
+      }
       _worker = union._worker;
     } else {
       _worker = await IsoWorker.init(_workerMethod);
@@ -26,23 +34,24 @@ class StorageImpl {
     });
   }
 
-  /// Write data to a file
+  @override
   Future<void> flush(dynamic data) async {
     final res = await _worker
         .exec<bool>({'command': 'flush', 'path': _path, 'data': data});
     assert(res, 'file is not opened: $_path');
   }
 
-  /// Removes all entries from the storage.
+  @override
   Future<void> clear() async {
     return _worker.exec({'command': 'clear', 'path': _path});
   }
 
+  @override
   Future<void> close() async {
     return _worker.exec({'command': 'close', 'path': _path});
   }
 
-  /// Destroying object.
+  @override
   Future<void> dispose() async => _worker.dispose();
 
   static void _workerMethod(Stream<WorkerData> message) {
