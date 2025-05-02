@@ -9,8 +9,24 @@ StorageImpl platformCreateStorage() {
   return IOStorageImpl();
 }
 
+class _IsoWorkerRef {
+  final IsoWorker ref;
+  int refCount = 0;
+
+  _IsoWorkerRef(this.ref);
+
+  bool get inProgress => ref.inProgress;
+  Future<T> exec<T>(Map<String, dynamic> data) => ref.exec(data);
+  Future<void> dispose() async {
+    refCount--;
+    if (refCount < 0) {
+      await ref.dispose();
+    }
+  }
+}
+
 class IOStorageImpl implements StorageImpl {
-  late final IsoWorker _worker;
+  late final _IsoWorkerRef _worker;
   late final String _path;
 
   @override
@@ -24,8 +40,9 @@ class IOStorageImpl implements StorageImpl {
         throw ArgumentError('union must be IOStorageImpl');
       }
       _worker = union._worker;
+      _worker.refCount++;
     } else {
-      _worker = await IsoWorker.init(_workerMethod);
+      _worker = _IsoWorkerRef(await IsoWorker.init(_workerMethod));
     }
     _path = '$path${Platform.pathSeparator}$name';
     return await _worker.exec({

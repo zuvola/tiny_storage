@@ -1,3 +1,6 @@
+## 1.4.1
+- Fixed a bug in worker destruction when using union.
+
 ## 1.4.0
 - Added `StorageImpl` interface for better testability and extensibility.
 - Refactored storage implementations into separate classes (`IOStorageImpl` and `HTMLStorageImpl`).

@@ -159,5 +159,11 @@ void main() {
     expect(val, null);
     await Future.delayed(Duration.zero);
     await storage2.dispose();
+
+    storage.set('key_1', 'val_2');
+    await Future.delayed(Duration.zero);
+    val = storage.get<String>('key_1');
+    expect(val, 'val_2');
+    expect(error, isNull);
   });
 }
