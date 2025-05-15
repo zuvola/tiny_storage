@@ -1,6 +1,6 @@
 name: tiny_storage
 description: This is a simple key-value store based on JSON file. Parallel processing of file I/O using `Isolate`.
-version: 1.4.1
+version: 1.5.0
 homepage: https://github.com/zuvola/tiny_storage
 
 environment:
@@ -10,5 +10,5 @@ dependencies:
   isoworker: ^1.2.0
 
 dev_dependencies:
-  lints: ^3.0.0
-  test: ^1.25.15
+  lints: ^4.0.0
+  test: ^1.26.0

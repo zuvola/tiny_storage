@@ -10,11 +10,19 @@ class TinyStorage {
   final Map<String, dynamic> _data = {};
   late _FlushTask _flush;
 
+  /// Whether to save data immediately or not.
+  /// Considering performance, it is actually executed when the save process is called a certain number of times.
+  final bool deferredSave;
+  int _deferredSaveCount = 0;
+
   /// Whether it is being processed or not.
   bool get inProgress => _concrete.inProgress;
 
-  TinyStorage._(StorageImpl? storage, void Function(Object)? errorCallback)
-      : _concrete = storage ?? createDefaultStorage() {
+  TinyStorage._(
+    StorageImpl? storage,
+    void Function(Object)? errorCallback,
+    this.deferredSave,
+  ) : _concrete = storage ?? createDefaultStorage() {
     _flush = _FlushTask(
       _concrete.flush,
       _data,
@@ -31,8 +39,9 @@ class TinyStorage {
     TinyStorage? union,
     void Function(Object)? errorCallback,
     StorageImpl? storage,
+    bool deferredSave = false,
   }) async {
-    final instance = TinyStorage._(storage, errorCallback);
+    final instance = TinyStorage._(storage, errorCallback, deferredSave);
     final ret = await instance._concrete.init(
       name,
       path,
@@ -43,17 +52,22 @@ class TinyStorage {
   }
 
   /// Destroying object.
-  Future<void> dispose() => _concrete.dispose();
-
-  /// Removes all entries from the storage.
-  Future<void> clear() async {
-    await _concrete.clear();
-    _data.clear();
+  Future<void> dispose() async {
+    if (deferredSave) {
+      flush();
+      await waitUntilIdle();
+    }
+    return _concrete.dispose();
   }
 
+  /// Removes all entries from the storage.
+  Future<void> clear() => _clearOrClose(_concrete.clear);
+
   /// Close the file.
-  Future<void> close() async {
-    await _concrete.close();
+  Future<void> close() => _clearOrClose(_concrete.close);
+
+  Future<void> _clearOrClose(Future<void> Function() func) async {
+    await func();
     _data.clear();
   }
 
@@ -64,18 +78,28 @@ class TinyStorage {
   void set(String key, dynamic value) {
     if (value is Map || value is List || _data[key] != value) {
       _data[key] = value;
-      _flush.run();
+      if (!deferredSave || ++_deferredSaveCount > 10) {
+        flush();
+        _deferredSaveCount = 0;
+      }
     }
   }
+
+  /// Returns a list of all keys in the storage.
+  List<String> keys() => List.unmodifiable(_data.keys);
 
   /// Removes [key] from the storage.
   void remove(String key) {
     _data.remove(key);
-    _flush.run();
+    flush();
   }
 
+  /// Flushes the data to the storage.
+  /// If [deferredSave] is false, this method is called automatically when [set] is called.
+  void flush() => _flush.run();
+
   /// Wait until idle.
-  Future<void> waitUntilIdle() {
+  Future<void> waitUntilIdle() async {
     return Future.microtask(() async {
       if (inProgress) {
         await Future.delayed(Duration(milliseconds: 50));
@@ -114,9 +138,7 @@ class _FlushTask {
         }
         final next = state == _TaskState.next;
         state = _TaskState.free;
-        if (next) {
-          run();
-        }
+        if (next) run();
       });
     }
   }

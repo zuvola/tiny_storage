@@ -1,3 +1,6 @@
+## 1.5.0
+- Added `deferredSave` to improve performance for frequent saves.
+
 ## 1.4.1
 - Fixed a bug in worker destruction when using union.
 
