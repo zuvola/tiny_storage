@@ -1,30 +1,34 @@
 library tiny_storage;
 
 import 'dart:async';
-import 'src/storage_impl.dart';
-import 'src/storage_factory.dart';
+
+import 'package:tiny_storage/src/logging.dart';
+
+import 'src/storage.dart';
+import 'src/worker/worker_factory.dart';
 
 /// A simple key-value store based on JSON file
 class TinyStorage {
-  final StorageImpl _concrete;
+  final Storage _storage;
   final Map<String, dynamic> _data = {};
   late _FlushTask _flush;
 
   /// Whether to save data immediately or not.
-  /// Considering performance, it is actually executed when the save process is called a certain number of times.
   final bool deferredSave;
-  int _deferredSaveCount = 0;
+
+  /// Timer for deferred flush
+  Timer? _deferredTimer;
 
   /// Whether it is being processed or not.
-  bool get inProgress => _concrete.inProgress;
+  bool get inProgress => _storage.inProgress;
 
   TinyStorage._(
-    StorageImpl? storage,
-    void Function(Object)? errorCallback,
+    this._storage,
+    void Function(Object, StackTrace?)? errorCallback,
     this.deferredSave,
-  ) : _concrete = storage ?? createDefaultStorage() {
+  ) {
     _flush = _FlushTask(
-      _concrete.flush,
+      _storage.flush,
       _data,
       errorCallback,
     );
@@ -36,37 +40,23 @@ class TinyStorage {
   static Future<TinyStorage> init(
     String name, {
     String path = '.',
-    TinyStorage? union,
-    void Function(Object)? errorCallback,
-    StorageImpl? storage,
+    void Function(Object, StackTrace?)? errorCallback,
     bool deferredSave = false,
   }) async {
+    final storage = await Storage.create(platformWorkerObject());
     final instance = TinyStorage._(storage, errorCallback, deferredSave);
-    final ret = await instance._concrete.init(
-      name,
-      path,
-      union?._concrete,
-    );
+    final ret = await instance._storage.open(name, path);
     instance._data.addAll(ret);
     return instance;
   }
 
-  /// Destroying object.
-  Future<void> dispose() async {
-    if (deferredSave) {
-      flush();
-      await waitUntilIdle();
-    }
-    return _concrete.dispose();
-  }
-
-  /// Removes all entries from the storage.
-  Future<void> clear() => _clearOrClose(_concrete.clear);
+  Future<void> delete() => _clearOrClose(_storage.delete);
 
   /// Close the file.
-  Future<void> close() => _clearOrClose(_concrete.close);
+  Future<void> close() => _clearOrClose(_storage.close);
 
   Future<void> _clearOrClose(Future<void> Function() func) async {
+    await waitUntilIdle();
     await func();
     _data.clear();
   }
@@ -78,9 +68,16 @@ class TinyStorage {
   void set(String key, dynamic value) {
     if (value is Map || value is List || _data[key] != value) {
       _data[key] = value;
-      if (!deferredSave || ++_deferredSaveCount > 10) {
+      if (!deferredSave) {
         flush();
-        _deferredSaveCount = 0;
+      } else {
+        // Cancel previous timer if running
+        _deferredTimer?.cancel();
+        // Start a new timer for 1 second
+        _deferredTimer = Timer(const Duration(seconds: 1), () {
+          flush();
+          _deferredTimer = null;
+        });
       }
     }
   }
@@ -96,7 +93,12 @@ class TinyStorage {
 
   /// Flushes the data to the storage.
   /// If [deferredSave] is false, this method is called automatically when [set] is called.
-  void flush() => _flush.run();
+  void flush() {
+    Logging.d(this, 'flush');
+    _deferredTimer?.cancel();
+    _deferredTimer = null;
+    _flush.run();
+  }
 
   /// Wait until idle.
   Future<void> waitUntilIdle() async {
@@ -114,7 +116,7 @@ enum _TaskState { free, lock, busy, next }
 class _FlushTask {
   final Object data;
   final Future<void> Function(Object) flushFunc;
-  final void Function(Object)? errorCallback;
+  final void Function(Object, StackTrace?)? errorCallback;
   _TaskState state = _TaskState.free;
 
   _FlushTask(
@@ -133,8 +135,8 @@ class _FlushTask {
         state = _TaskState.busy;
         try {
           await flushFunc(data);
-        } catch (e) {
-          errorCallback?.call(e);
+        } catch (e, s) {
+          errorCallback?.call(e, s);
         }
         final next = state == _TaskState.next;
         state = _TaskState.free;

@@ -7,5 +7,5 @@ void main() async {
   storage.set('key_3', [1, 2, 3]);
   final ret = storage.get('key_1');
   print(ret);
-  await storage.dispose();
+  await storage.close();
 }

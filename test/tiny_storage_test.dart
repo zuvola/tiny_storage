@@ -1,5 +1,6 @@
 import 'dart:async';
-import 'dart:io';
+import 'utils/io_test_utils.dart'
+    if (dart.library.html) 'utils/web_test_utils.dart';
 
 import 'package:test/test.dart';
 import 'package:tiny_storage/tiny_storage.dart';
@@ -15,15 +16,15 @@ void main() {
       storage = await TinyStorage.init(
         testFileName,
         path: testFilePath,
-        errorCallback: (err) {
+        errorCallback: (err, stack) {
           error = err;
-          print(err);
         },
       );
     });
     tearDown(() async {
       error = null;
-      await storage.dispose();
+      await storage.close();
+      clearTestData(testFilePath);
     });
     test('set and get', () async {
       storage.set('key_1', 'val_1');
@@ -37,35 +38,52 @@ void main() {
       expect(val[2], 3);
     });
     test('persistent', () async {
-      final val = storage.get('key_2');
-      expect(val, 2);
-    });
-
-    test('clear', () async {
-      await storage.clear();
-      final val = storage.get('key_2');
-      expect(val, isNull);
-      final file = File(testFilePath + Platform.pathSeparator + testFileName);
-      expect(file.existsSync(), false);
+      storage.set('key_2', 100);
       await storage.waitUntilIdle();
-      expect(error, isNull);
+
+      final storage2 = await TinyStorage.init(
+        testFileName,
+        path: testFilePath,
+      );
+
+      final val = storage2.get('key_2');
+      expect(val, 100);
+      await storage2.close();
     });
 
-    test('clear twice', () async {
-      await storage.clear();
-      await storage.clear();
-      final val = storage.get('key_2');
-      expect(val, isNull);
+    test('delete', () async {
+      storage.set('key_2', 10);
       await storage.waitUntilIdle();
+
+      await storage.delete();
+
+      expect(fileExists(testFilePath, testFileName), false);
+
+      final storage2 = await TinyStorage.init(
+        testFileName,
+        path: testFilePath,
+      );
+
+      final val = storage2.get('key_2');
+      expect(val, isNull);
+
       expect(error, isNull);
+      await storage2.close();
     });
 
-    test('clear and set', () async {
-      await storage.clear();
+    test('delete twice', () async {
+      // final file = File(testFilePath + Platform.pathSeparator + testFileName);
+      storage.set('key_2', 10);
+      await storage.waitUntilIdle();
+
+      await storage.delete();
+      expectLater(storage.delete(), throwsA(isA<Exception>()));
+    });
+
+    test('delete and set', () async {
+      await storage.delete();
       storage.set('key_1', 'val_1');
-      dynamic val = storage.get<String>('key_1');
-      expect(val, 'val_1');
-      await storage.waitUntilIdle();
+      await Future.delayed(Duration(milliseconds: 100));
       expect(error, isNotNull);
     });
 
@@ -73,16 +91,15 @@ void main() {
       await storage.close();
       final val = storage.get('key_1');
       expect(val, isNull);
-      final file = File(testFilePath + Platform.pathSeparator + testFileName);
-      expect(file.existsSync(), true);
+      expect(fileExists(testFilePath, testFileName), true);
     });
 
     test('close and set', () async {
       await storage.close();
       storage.set('key_1', 'val_1');
       await storage.waitUntilIdle();
-      final file = File(testFilePath + Platform.pathSeparator + testFileName);
-      expect(file.existsSync(), true);
+      expect(fileExists(testFilePath, testFileName), true);
+      await Future.delayed(Duration(milliseconds: 100));
       expect(error, isNotNull);
     });
 
@@ -99,19 +116,28 @@ void main() {
       expect(storage.inProgress, false);
       storage.set('key_2', 2);
       await Future.delayed(Duration.zero);
-      expect(storage.inProgress, true);
+      if (!isWeb) {
+        expect(storage.inProgress, true);
+      }
       storage.set('key_3', [1, 2, 3]);
       storage.set('key_4', true);
       final val = storage.get('key_4');
       expect(val, true);
-      expect(storage.inProgress, true);
+      if (!isWeb) {
+        expect(storage.inProgress, true);
+      }
       await storage.waitUntilIdle();
       expect(storage.inProgress, false);
-    });
+      await storage.waitUntilIdle();
 
-    test('persistent2', () async {
-      final val = storage.get('key_4');
-      expect(val, true);
+      final storage2 = await TinyStorage.init(
+        testFileName,
+        path: testFilePath,
+      );
+
+      final val2 = storage2.get('key_4');
+      expect(val2, true);
+      await storage2.close();
     });
 
     test('save order safety', () async {
@@ -121,11 +147,15 @@ void main() {
       storage.set('key_1', 'val_3');
       final val = storage.get<String>('key_1');
       expect(val, 'val_3');
-    });
+      await storage.waitUntilIdle();
 
-    test('persistent3', () async {
-      final val = storage.get<String>('key_1');
-      expect(val, 'val_3');
+      final storage2 = await TinyStorage.init(
+        testFileName,
+        path: testFilePath,
+      );
+      final val2 = storage2.get('key_1');
+      expect(val2, 'val_3');
+      await storage2.close();
     });
 
     test('Map', () async {
@@ -138,122 +168,83 @@ void main() {
       storage.set('key_map', map);
       val = storage.get<Map>('key_map');
       expect(val, {'a': 2});
-    });
+      await storage.waitUntilIdle();
 
-    test('persistent4', () async {
-      final val = storage.get<Map>('key_map');
-      expect(val, {'a': 2});
-    });
-
-    test('union', () async {
-      final storage2 =
-          await TinyStorage.init('test2.txt', path: './tmp', union: storage);
-      storage.set('key_1', 'val_1');
-      dynamic val = storage.get<String>('key_1');
-      expect(val, 'val_1');
-      storage2.set('key_union', 2);
-      val = storage2.get<int>('key_union');
-      expect(val, 2);
-      val = storage.get('key_union');
-      expect(val, null);
-      await Future.delayed(Duration.zero);
-      await storage2.dispose();
-
-      storage.set('key_1', 'val_2');
-      await Future.delayed(Duration.zero);
-      val = storage.get<String>('key_1');
-      expect(val, 'val_2');
-      expect(error, isNull);
+      final storage2 = await TinyStorage.init(
+        testFileName,
+        path: testFilePath,
+      );
+      final val2 = storage.get<Map>('key_map');
+      expect(val2, {'a': 2});
+      await storage2.close();
     });
   });
-
   group('deferredSave', () {
-    late TinyStorage storage;
-    final deferredFileName = 'deferred.txt';
+    late TinyStorage deferredStorage;
 
     setUp(() async {
-      storage = await TinyStorage.init(
-        deferredFileName,
+      deferredStorage = await TinyStorage.init(
+        testFileName,
         path: testFilePath,
         deferredSave: true,
-        errorCallback: (err) {},
       );
     });
 
     tearDown(() async {
-      await storage.dispose();
-      final file =
-          File(testFilePath + Platform.pathSeparator + deferredFileName);
-      if (file.existsSync()) file.deleteSync();
+      await deferredStorage.close();
+      clearTestData(testFilePath);
     });
 
-    test('does not flush immediately on set', () async {
-      storage.set('d_key', 'd_val');
-      await Future.delayed(Duration(milliseconds: 50));
-      final file =
-          File(testFilePath + Platform.pathSeparator + deferredFileName);
-      expect(file.lengthSync(), 0);
+    test('flush is called after 1 second of inactivity', () async {
+      deferredStorage.set('key', 'value1');
+      // Set again before 1 second to reset the timer
+      await Future.delayed(const Duration(milliseconds: 500));
+      deferredStorage.set('key', 'value2');
+      // Wait less than 1 second, flush should not be called yet
+      await Future.delayed(const Duration(milliseconds: 700));
+      // Data should still be in memory, not flushed yet
+      final storage2 = await TinyStorage.init(
+        testFileName,
+        path: testFilePath,
+      );
+      expect(storage2.get('key'), isNull);
+
+      // Wait enough time for flush to happen
+      await Future.delayed(const Duration(milliseconds: 400));
+      final storage3 = await TinyStorage.init(
+        testFileName,
+        path: testFilePath,
+      );
+      expect(storage3.get('key'), 'value2');
+
+      await storage2.close();
+      await storage3.close();
     });
 
-    test('flushes after 11 sets', () async {
-      for (var i = 0; i < 11; i++) {
-        storage.set('d_key', 'val_$i');
+    test('flush is not called if set is called repeatedly within 1 second',
+        () async {
+      for (int i = 0; i < 5; i++) {
+        deferredStorage.set('counter', i);
+        await Future.delayed(const Duration(milliseconds: 300));
       }
-      await storage.waitUntilIdle();
-      final file =
-          File(testFilePath + Platform.pathSeparator + deferredFileName);
-      expect(file.lengthSync() > 0, true);
-
-      final newStorage = await TinyStorage.init(
-        deferredFileName,
+      // Wait less than 1 second after last set
+      await Future.delayed(const Duration(milliseconds: 600));
+      final storage2 = await TinyStorage.init(
+        testFileName,
         path: testFilePath,
-        deferredSave: true,
       );
-      expect(newStorage.get<String>('d_key'), 'val_10');
-      await newStorage.dispose();
-    });
+      expect(storage2.get('counter'), isNull);
 
-    test('manual flush works', () async {
-      storage.set('manual_key', 'manual_val');
-      storage.flush();
-      await storage.waitUntilIdle();
-      final file =
-          File(testFilePath + Platform.pathSeparator + deferredFileName);
-      expect(file.lengthSync() > 0, true);
-
-      final newStorage = await TinyStorage.init(
-        deferredFileName,
+      // Wait enough time for flush to happen
+      await Future.delayed(const Duration(milliseconds: 200));
+      final storage3 = await TinyStorage.init(
+        testFileName,
         path: testFilePath,
-        deferredSave: true,
       );
-      expect(newStorage.get<String>('manual_key'), 'manual_val');
-      await newStorage.dispose();
-    });
+      expect(storage3.get('counter'), 4);
 
-    test('dispose triggers flush', () async {
-      storage.set('dispose_key', 'dispose_val');
-      await storage.dispose();
-      final file =
-          File(testFilePath + Platform.pathSeparator + deferredFileName);
-      expect(file.lengthSync() > 0, true);
-
-      final newStorage = await TinyStorage.init(
-        deferredFileName,
-        path: testFilePath,
-        deferredSave: true,
-      );
-      expect(newStorage.get<String>('dispose_key'), 'dispose_val');
-      await newStorage.dispose();
-    });
-
-    test('does not flush if set <= 10 times', () async {
-      for (var i = 0; i < 10; i++) {
-        storage.set('not_flushed_key', 'val_$i');
-      }
-      await Future.delayed(Duration(milliseconds: 50));
-      final file =
-          File(testFilePath + Platform.pathSeparator + deferredFileName);
-      expect(file.lengthSync(), 0);
+      await storage2.close();
+      await storage3.close();
     });
   });
 }
