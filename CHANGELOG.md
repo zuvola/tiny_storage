@@ -1,3 +1,6 @@
+## 2.0.1
+- Downgraded `meta` package version for compatibility with current Flutter.
+
 ## 2.0.0
 - Major refactor: overall processing and API have been reviewed and improved for better usability and maintainability.
 

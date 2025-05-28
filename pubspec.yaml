@@ -1,6 +1,6 @@
 name: tiny_storage
 description: A simple and lightweight key-value store that saves data as JSON files. Supports fast and ordered file I/O using Isolate-based parallel processing.
-version: 2.0.0
+version: 2.0.1
 homepage: https://github.com/zuvola/tiny_storage
 
 environment:
@@ -8,7 +8,7 @@ environment:
 
 dependencies:
   isoworker: ^2.0.0
-  meta: ^1.17.0
+  meta: ^1.16.0
   web: ^1.1.1
 
 dev_dependencies:
