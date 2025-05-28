@@ -1,5 +1,5 @@
 name: tiny_storage
-description: This is a simple key-value store based on JSON file. Parallel processing of file I/O using `Isolate`.
+description: A simple and lightweight key-value store that saves data as JSON files. Supports fast and ordered file I/O using Isolate-based parallel processing.
 version: 2.0.0
 homepage: https://github.com/zuvola/tiny_storage
 

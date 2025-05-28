@@ -7,21 +7,27 @@ import 'package:tiny_storage/src/logging.dart';
 import 'src/storage.dart';
 import 'src/worker/worker_factory.dart';
 
-/// A simple key-value store based on JSON file
+/// A simple key-value store that saves data as JSON files.
 class TinyStorage {
+  /// The underlying storage implementation.
   final Storage _storage;
+
+  /// In-memory key-value data.
   final Map<String, dynamic> _data = {};
+
+  /// Task handler for flushing data to storage.
   late _FlushTask _flush;
 
-  /// Whether to save data immediately or not.
+  /// If true, saving is deferred and batched; otherwise, data is saved immediately.
   final bool deferredSave;
 
-  /// Timer for deferred flush
+  /// Timer for scheduling deferred flushes.
   Timer? _deferredTimer;
 
-  /// Whether it is being processed or not.
+  /// Returns true if a storage operation is currently in progress.
   bool get inProgress => _storage.inProgress;
 
+  /// Private constructor for TinyStorage.
   TinyStorage._(
     this._storage,
     void Function(Object, StackTrace?)? errorCallback,
@@ -34,9 +40,7 @@ class TinyStorage {
     );
   }
 
-  /// Initialization.
-  /// Specify the file name to save.
-  /// Creates a new instance of TinyStorage with the given storage implementation.
+  /// Initializes a new TinyStorage instance and loads data from the specified file.
   static Future<TinyStorage> init(
     String name, {
     String path = '.',
@@ -50,30 +54,34 @@ class TinyStorage {
     return instance;
   }
 
-  Future<void> delete() => _clearOrClose(_storage.delete);
+  /// Deletes the storage file and clears all in-memory data.
+  Future<void> delete() => _deleteOrClose(_storage.delete);
 
-  /// Close the file.
-  Future<void> close() => _clearOrClose(_storage.close);
+  /// Closes the storage file and clears all in-memory data.
+  Future<void> close() => _deleteOrClose(_storage.close);
 
-  Future<void> _clearOrClose(Future<void> Function() func) async {
+  /// Helper method to perform a delete or close operation after waiting for all pending operations to finish.
+  Future<void> _deleteOrClose(Future<void> Function() func) async {
     await waitUntilIdle();
     await func();
     _data.clear();
   }
 
-  /// The value for the given [key], or `null` if [key] is not in the storage.
+  /// Returns the value associated with [key], or null if the key does not exist.
   T get<T>(String key) => _data[key] as T;
 
-  /// Associates the [key] with the given [value].
+  /// Sets the value for [key]. Triggers a flush immediately or after a delay, depending on [deferredSave].
   void set(String key, dynamic value) {
+    // Only update if value is a Map, List, or different from the current value.
     if (value is Map || value is List || _data[key] != value) {
       _data[key] = value;
       if (!deferredSave) {
+        // Save immediately if not deferred.
         flush();
       } else {
-        // Cancel previous timer if running
+        // Cancel any existing deferred flush timer.
         _deferredTimer?.cancel();
-        // Start a new timer for 1 second
+        // Schedule a new flush after 1 second.
         _deferredTimer = Timer(const Duration(seconds: 1), () {
           flush();
           _deferredTimer = null;
@@ -82,17 +90,17 @@ class TinyStorage {
     }
   }
 
-  /// Returns a list of all keys in the storage.
+  /// Returns a list of all keys currently stored.
   List<String> keys() => List.unmodifiable(_data.keys);
 
-  /// Removes [key] from the storage.
+  /// Removes the entry for [key] and flushes the change to storage.
   void remove(String key) {
     _data.remove(key);
     flush();
   }
 
-  /// Flushes the data to the storage.
-  /// If [deferredSave] is false, this method is called automatically when [set] is called.
+  /// Writes the current in-memory data to storage.
+  /// Cancels any pending deferred flush.
   void flush() {
     Logging.d(this, 'flush');
     _deferredTimer?.cancel();
@@ -100,7 +108,7 @@ class TinyStorage {
     _flush.run();
   }
 
-  /// Wait until idle.
+  /// Waits until all storage operations are idle before continuing.
   Future<void> waitUntilIdle() async {
     return Future.microtask(() async {
       if (inProgress) {
@@ -111,20 +119,32 @@ class TinyStorage {
   }
 }
 
+/// Internal state for the flush task.
 enum _TaskState { free, lock, busy, next }
 
+/// Handles scheduling and executing flush operations to storage.
 class _FlushTask {
+  /// The data to be flushed.
   final Object data;
+
+  /// The function that performs the actual flush.
   final Future<void> Function(Object) flushFunc;
+
+  /// Optional callback for handling errors during flush.
   final void Function(Object, StackTrace?)? errorCallback;
+
+  /// Current state of the flush task.
   _TaskState state = _TaskState.free;
 
+  /// Creates a new flush task.
   _FlushTask(
     this.flushFunc,
     this.data,
     this.errorCallback,
   );
 
+  /// Runs the flush operation, ensuring only one flush is active at a time.
+  /// If a flush is already in progress, schedules another flush to run after the current one.
   void run() {
     if (state == _TaskState.busy) {
       state = _TaskState.next;

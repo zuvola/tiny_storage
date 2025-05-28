@@ -1,3 +1,6 @@
+## 2.0.0
+- Major refactor: overall processing and API have been reviewed and improved for better usability and maintainability.
+
 ## 1.5.0
 - Added `deferredSave` to improve performance for frequent saves.
 

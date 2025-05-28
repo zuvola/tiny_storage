@@ -4,153 +4,164 @@
 
 **[English](https://github.com/zuvola/tiny_storage/blob/master/README.md), [日本語](https://github.com/zuvola/tiny_storage/blob/master/README_jp.md)**
 
+`tiny_storage` is a simple key-value store based on JSON files.  
+It is a very small library, making its internal behavior easy to understand.
 
-`tiny_storage` is a simple key-value store based on JSON files.
-It is also a very small library, so it is easy for anyone to understand how it works.
-
+> **⚠️ Notice for version 2.0:**  
+> This release includes breaking changes.  
+> The usage and API have changed significantly from previous versions.  
+> Please be sure to check the latest documentation and usage examples.
 
 ## Features
 
-- Key-Value Store
-- Output as JSON file
-- Fast
-  - Parallel processing of file I/O using `Isolate`.
-  - Multiple write operations are not executed in the same event loop.
-- Guaranteed write order, even for large data.
+- Simple key-value store
+- Data is saved as JSON files
+- Fast write operations
+  - Parallel file I/O using `Isolate`
+  - Multiple writes in the same event loop are batched into a single operation
+- Write order is guaranteed
+- Small codebase
 
-
-## Getting started
+## Getting Started
 
 ```dart
 import 'package:tiny_storage/tiny_storage.dart';
 
 void main() async {
-  final storage = await TinyStorage.init('test.txt', path: './tmp');
+  final storage = await TinyStorage.init('test.json', path: './tmp');
   storage.set('key_1', 'value_1');
   storage.set('key_2', 2);
   storage.set('key_3', [1, 2, 3]);
-  final ret = storage.get('key_1');
+  final ret = storage.get<String>('key_1');
   print(ret);
-  await storage.dispose();
+  await storage.close(); // Use close() to dispose
 }
 ```
 
-
 ## Usage
 
-### Initialize
+### Initialization
 
-Specify the file name to save and initialize.
-If the file exists, the loading process will run.  
-In the case of Flutter, it is also necessary to specify the destination path using [path_provider](https://pub.dev/packages/path_provider).
-
-```dart
-final storage = await TinyStorage.init('test.txt', path: './tmp');
-```
-
-If you do not want to increase the number of threads when opening multiple files, specify a TinyStorage object to be shared in `union`. It will work on the same thread.
+Initialize by specifying the file name to save.  
+If the file exists, it will be loaded automatically.  
+For Flutter, specify the save path using [path_provider](https://pub.dev/packages/path_provider) or similar.
 
 ```dart
-final storage = await TinyStorage.init('test1.txt', path: './tmp');
-final storage2 = await TinyStorage.init('test2.txt', path: './tmp', union: storage);
+final storage = await TinyStorage.init('test.json', path: './tmp');
 ```
 
-### Registration and Retrieval
+#### deferredSave option
 
-Registers and retrieves an Object using String as a key.  
-The value is immediately held in memory and written to disk before the next event loop.
+If you set `deferredSave` to `true`, saving will be delayed by 1 second after calling `set`, and multiple sets within a short period will be batched into a single write.  
+The default is `false` (immediate save).
+
+```dart
+final storage = await TinyStorage.init(
+  'test.json',
+  path: './tmp',
+  deferredSave: true,
+);
+```
+
+#### errorCallback option
+
+The `errorCallback` is a callback that only receives errors that occur during the **save process (flush)**.  
+You will receive the error object and stack trace.  
+Errors that occur during other operations, such as file deletion or closing, are **not** passed to this callback.
+
+```dart
+final storage = await TinyStorage.init(
+  'test.json',
+  errorCallback: (error, stack) {
+    print('Storage error: $error');
+  },
+);
+```
+
+For errors in other operations (e.g. `delete()`), handle them individually using `try-catch`:
+
+```dart
+try {
+  await storage.delete();
+} catch (e, stack) {
+  print('Delete error: $e');
+}
+```
+
+### Storing and Retrieving Data
+
+You can store and retrieve values using a string key.  
+Values are kept in memory immediately, and writes are performed at the end of the event loop or batched if deferred saving is enabled.
 
 ```dart
 storage.set('key_1', 'value_1');
-final ret = storage.get('key_1');
+final ret = storage.get<String>('key_1');
 ```
 
-### Clear
+### Deleting Data
 
-Discard all data and the file.
+Remove data by specifying the key.
 
 ```dart
-storage.clear();
+storage.remove('key_1');
+```
+
+### Delete All Data and File
+
+To delete all data and the file, use `delete()`.
+
+```dart
+await storage.delete();
 ```
 
 ### Dispose
 
-Use `dispose` to destroy it when it is no longer needed.
+When you are done using the storage, release resources with `close()`.
 
 ```dart
-storage.dispose();
+await storage.close();
 ```
 
+### Get All Keys
 
-## Testing
-
-You can create a mock implementation using the `StorageImpl` interface for testing purposes.
+You can get all currently registered keys.
 
 ```dart
-class MockStorageImpl implements StorageImpl {
-  final Map<String, dynamic> data = {};
-  bool _inProgress = false;
-
-  @override
-  bool get inProgress => _inProgress;
-
-  @override
-  Future<Map<String, dynamic>> init(
-      String name, String path, StorageImpl? union) async {
-    return data;
-  }
-
-  @override
-  Future<void> flush(dynamic newData) async {
-    _inProgress = true;
-    if (newData is Map) {
-      data.clear();
-      data.addAll(newData as Map<String, dynamic>);
-    }
-    _inProgress = false;
-  }
-
-  // Implement other methods...
-}
-
-void main() {
-  test('TinyStorage with mock', () async {
-    final mockStorage = MockStorageImpl();
-    final storage = await TinyStorage.init(
-      'test.json',
-      path: '.',
-      storage: mockStorage, // Inject mock implementation
-    );
-
-    storage.set('key', 'value');
-    await storage.waitUntilIdle();
-    expect(storage.get<String>('key'), equals('value'));
-    expect(mockStorage.data['key'], equals('value'));
-  });
-}
+final keys = storage.keys();
+print(keys); // List<String>
 ```
 
-## Note
+### Force Save
 
-The web version has not been implemented yet.
+Normally, saving is automatic, but you can explicitly save by calling `flush()`.
 
+```dart
+storage.flush();
+```
 
-## tiny_locator
+### Wait Until All Saves Complete
 
-Since `tiny_storage` runs the file reading process at the time of` init`,
-When using it in multiple classes, it is recommended to share the instance using [tiny_locator](https://pub.dartlang.org/packages/tiny_locator) etc.
+If you want to wait until all save operations are complete, use `waitUntilIdle()`.
 
+```dart
+await storage.waitUntilIdle();
+```
+
+## Using with tiny_locator
+
+Since `tiny_storage` loads files during `init`,  
+it is recommended to share the instance using [tiny_locator](https://pub.dartlang.org/packages/tiny_locator) or similar when using it across multiple classes.
 
 ```dart
 Future<void> A() async {
-  // Registration
-  final storage = await TinyStorage.init('test.txt', path: './tmp');
+  // Register
+  final storage = await TinyStorage.init('test.json', path: './tmp');
   locator.add<TinyStorage>(() => storage);
 }
 void B() {
-  // Acquisition
+  // Retrieve
   final storage = locator.get<TinyStorage>();
-  final ret = storage.get('key_1');
+  final ret = storage.get<String>('key_1');
   print(ret);
 }
 ```

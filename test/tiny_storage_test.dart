@@ -72,7 +72,6 @@ void main() {
     });
 
     test('delete twice', () async {
-      // final file = File(testFilePath + Platform.pathSeparator + testFileName);
       storage.set('key_2', 10);
       await storage.waitUntilIdle();
 
