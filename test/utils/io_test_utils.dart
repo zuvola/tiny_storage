@@ -6,7 +6,7 @@ bool get isWeb => false;
 Future<void> clearTestData(String path) async {
   final tmpDir = Directory(path);
   if (await tmpDir.exists()) {
-    tmpDir.deleteSync(recursive: true);
+    await tmpDir.delete(recursive: true);
   }
 }
 

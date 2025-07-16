@@ -55,15 +55,21 @@ class TinyStorage {
   }
 
   /// Deletes the storage file and clears all in-memory data.
-  Future<void> delete() => _deleteOrClose(_storage.delete);
+  Future<void> delete() async {
+    _deferredTimer?.cancel();
+    _deferredTimer = null;
+    await waitUntilIdle();
+    await _storage.delete();
+    _data.clear();
+  }
 
   /// Closes the storage file and clears all in-memory data.
-  Future<void> close() => _deleteOrClose(_storage.close);
-
-  /// Helper method to perform a delete or close operation after waiting for all pending operations to finish.
-  Future<void> _deleteOrClose(Future<void> Function() func) async {
+  Future<void> close() async {
+    if (_deferredTimer != null) {
+      flush();
+    }
     await waitUntilIdle();
-    await func();
+    await _storage.close();
     _data.clear();
   }
 

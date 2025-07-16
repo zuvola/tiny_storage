@@ -180,16 +180,22 @@ void main() {
   });
   group('deferredSave', () {
     late TinyStorage deferredStorage;
+    Object? error;
 
     setUp(() async {
       deferredStorage = await TinyStorage.init(
         testFileName,
         path: testFilePath,
         deferredSave: true,
+        errorCallback: (err, stack) {
+          print('error: $err');
+          error = err;
+        },
       );
     });
 
     tearDown(() async {
+      error = null;
       await deferredStorage.close();
       clearTestData(testFilePath);
     });
@@ -244,6 +250,16 @@ void main() {
 
       await storage2.close();
       await storage3.close();
+    });
+
+    test('close', () async {
+      deferredStorage.set('key_2', 10);
+      await deferredStorage.close();
+      await clearTestData(testFilePath);
+
+      await Future.delayed(Duration(seconds: 1));
+
+      expect(error, isNull);
     });
   });
 }
