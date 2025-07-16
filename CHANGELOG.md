@@ -1,3 +1,6 @@
+## 2.0.2
+- Improved deferred save process.
+
 ## 2.0.1
 - Downgraded `meta` package version for compatibility with current Flutter.
 
